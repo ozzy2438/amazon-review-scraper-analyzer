@@ -12,6 +12,15 @@ from datetime import datetime
 import json
 import sys
 import warnings
+
+# Dashboard entegrasyonu için eklenen import
+try:
+    from amazon_dashboard import AmazonDashboard
+    DASHBOARD_AVAILABLE = True
+except ImportError:
+    DASHBOARD_AVAILABLE = False
+    print("Warning: Dashboard components not found, interactive dashboard will not be available.")
+
 warnings.filterwarnings('ignore')
 
 class AmazonReviewAnalyzer:
@@ -101,18 +110,20 @@ class AmazonReviewAnalyzer:
     
     def prepare_data(self, df):
         """Clean and prepare the data for analysis."""
-        # Convert date to datetime
-        try:
-            df['date'] = pd.to_datetime(df['date'], errors='coerce')
-        except:
-            # Try a different approach if standard conversion fails
-            df['date'] = df['date'].astype(str)
-            date_pattern = r'(\w+ \d+, \d{4})'
-            df['date'] = df['date'].str.extract(date_pattern)
-            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        # Convert date to datetime if exists
+        if 'date' in df.columns:
+            try:
+                df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            except:
+                # Try a different approach if standard conversion fails
+                df['date'] = df['date'].astype(str)
+                date_pattern = r'(\w+ \d+, \d{4})'
+                df['date'] = df['date'].str.extract(date_pattern)
+                df['date'] = pd.to_datetime(df['date'], errors='coerce')
         
-        # Convert rating to numeric
-        df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
+        # Convert rating to numeric if exists
+        if 'rating' in df.columns:
+            df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
         
         # Convert product rating to numeric
         if 'productRating' in df.columns:
@@ -161,7 +172,7 @@ class AmazonReviewAnalyzer:
             return 0
     
     def analyze_products(self, df, product_name):
-        """Analyze the products and generate visualizations."""
+        """Analyze product data and generate visualizations."""
         results = {
             "product_name": product_name,
             "analysis_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -171,8 +182,13 @@ class AmazonReviewAnalyzer:
         
         # 1. Basic metrics
         results["metrics"]["total_products"] = len(df)
-        results["metrics"]["average_rating"] = df['productRating'].mean()
-        results["metrics"]["average_review_count"] = df['productReviewCount'].mean() if 'productReviewCount' in df.columns else None
+        
+        # NaN değerlerini null olarak değiştir
+        avg_rating = df['productRating'].mean() if 'productRating' in df.columns and not df['productRating'].empty else None
+        results["metrics"]["average_rating"] = None if pd.isna(avg_rating) else avg_rating
+        
+        avg_review = df['productReviewCount'].mean() if 'productReviewCount' in df.columns and not df['productReviewCount'].empty else None 
+        results["metrics"]["average_review_count"] = None if pd.isna(avg_review) else avg_review
         
         # Calculate price metrics if price data available
         if 'price_numeric' in df.columns:
@@ -252,25 +268,36 @@ class AmazonReviewAnalyzer:
             stopwords = set(STOPWORDS)
             stopwords.update(['br', 'href', 'www', 'http', 'com', 'amazon'])
             
-            wordcloud = WordCloud(
-                background_color='white',
-                max_words=100,
-                stopwords=stopwords,
-                max_font_size=50,
-                width=800,
-                height=400
-            ).generate(titles_text)
-            
-            plt.figure(figsize=(10, 8))
-            plt.imshow(wordcloud, interpolation='bilinear')
-            plt.axis('off')
-            plt.title(f'Most Common Words in {product_name} Titles', fontsize=14)
-            
-            wordcloud_path = os.path.join(self.output_folder, f"{product_name}_title_wordcloud.png".replace(' ', '_'))
-            plt.tight_layout()
-            plt.savefig(wordcloud_path)
-            plt.close()
-            figure_paths.append(wordcloud_path)
+            wordcloud_image = None
+            if titles_text and len(titles_text.strip()) > 0:
+                try:
+                    # Create a WordCloud of product titles
+                    print("Generating word cloud from product titles...")
+                    wordcloud = WordCloud(
+                        background_color='white',
+                        max_words=100,
+                        stopwords=stopwords,
+                        max_font_size=50,
+                        width=800,
+                        height=400
+                    ).generate(titles_text)
+                    
+                    plt.figure(figsize=(10, 8))
+                    plt.imshow(wordcloud, interpolation='bilinear')
+                    plt.axis('off')
+                    plt.title(f'Most Common Words in {product_name} Titles', fontsize=14)
+                    
+                    wordcloud_path = os.path.join(self.output_folder, f"{product_name}_title_wordcloud.png".replace(' ', '_'))
+                    plt.tight_layout()
+                    plt.savefig(wordcloud_path)
+                    plt.close()
+                    figure_paths.append(wordcloud_path)
+                except ValueError as e:
+                    print(f"Warning: Could not generate wordcloud - {str(e)}")
+                    print("Continuing analysis without wordcloud...")
+            else:
+                print("Warning: Not enough text data for wordcloud generation. Skipping.")
+                wordcloud_image = None
         
         # 3. Collect key insights
         results["insights"] = self.generate_product_insights(df, product_name)
@@ -353,6 +380,14 @@ class AmazonReviewAnalyzer:
         metrics_df.to_csv(metrics_path, index=False)
         
         print(f"Analysis results saved to:\n- {report_path}\n- {summary_path}\n- {metrics_path}")
+        
+        # 4. Return the paths for potential dashboard launch
+        return {
+            'report': report_path,
+            'summary': summary_path,
+            'metrics': metrics_path,
+            'data': df
+        }
     
     def generate_html_report(self, df, analysis_results, output_path):
         """Generate a comprehensive HTML report."""
@@ -863,15 +898,48 @@ class AmazonReviewAnalyzer:
 def main():
     print("Starting Amazon Product Analyzer...")
     
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Amazon Product Analyzer")
+    parser.add_argument('file_path', nargs='?', help='Path to CSV file to analyze')
+    parser.add_argument('--dashboard', action='store_true', help='Launch interactive dashboard after analysis')
+    args = parser.parse_args()
+    
     # Check if a file was passed as an argument
-    if len(sys.argv) > 1:
+    if args.file_path:
         # If a specific file is provided, analyze it directly
-        file_path = sys.argv[1]
+        file_path = args.file_path
         if os.path.exists(file_path) and file_path.endswith('.csv'):
             print(f"Analyzing specific file: {file_path}")
             analyzer = AmazonReviewAnalyzer()
-            analyzer.process_file(file_path)
+            df = pd.read_csv(file_path)
+            
+            # Extract product name from filename
+            file_name = os.path.basename(file_path)
+            product_name = file_name.split('_Products_')[0].replace('_', ' ')
+            
+            # Prepare data for analysis
+            analyzer.prepare_data(df)
+            
+            # Generate analysis and visualizations
+            analysis_results = analyzer.analyze_products(df, product_name)
+            
+            # Save results and get paths
+            result_paths = analyzer.save_results(df, analysis_results, product_name)
+            
             print("Analysis completed!")
+            
+            # Launch dashboard if requested
+            if args.dashboard and DASHBOARD_AVAILABLE:
+                print("\nLaunching interactive dashboard...")
+                try:
+                    dashboard = AmazonDashboard(
+                        data_path=file_path,
+                        analysis_results=result_paths['summary'],
+                        port=8050
+                    )
+                    dashboard.run_dashboard(debug=False)
+                except Exception as e:
+                    print(f"Error launching dashboard: {e}")
         else:
             print(f"Error: {file_path} is not a valid CSV file")
     else:
@@ -892,6 +960,12 @@ def run_after_scraper_completes():
     import subprocess
     import os
     import time
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Run Analyzer after Scraper")
+    parser.add_argument('--dashboard', action='store_true', help='Launch interactive dashboard after analysis')
+    args = parser.parse_args()
     
     # Check if the scraper is already running
     try:
@@ -926,7 +1000,13 @@ def run_after_scraper_completes():
             
             # Run the analyzer on the most recent file
             print(f"Analyzing most recent file: {latest_csv}")
-            subprocess.call(["python", "amazon_review_analyzer.py", latest_csv])
+            
+            # Build command with dashboard flag if requested
+            cmd = ["python", "amazon_review_analyzer.py", latest_csv]
+            if args.dashboard:
+                cmd.append("--dashboard")
+                
+            subprocess.call(cmd)
             
         else:
             print("Scraper encountered an error:")
@@ -936,6 +1016,9 @@ def run_after_scraper_completes():
         print(f"Error running automation: {e}")
 
 if __name__ == "__main__":
+    # Add support for argparse
+    import argparse
+    
     # Check if we should run the auto-sequence
     if len(sys.argv) > 1 and sys.argv[1] == "--auto":
         run_after_scraper_completes()
