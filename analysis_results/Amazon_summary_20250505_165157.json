@@ -1,0 +1,32 @@
+{
+    "product_name": "Amazon",
+    "analysis_time": "2025-05-05 16:51:56",
+    "metrics": {
+        "total_products": 20,
+        "average_rating": 3.35,
+        "average_review_count": 2065.0,
+        "average_price": 62.58454545454545,
+        "min_price": 12.49,
+        "max_price": 454.5
+    },
+    "visualizations": [
+        "analysis_results/Amazon_rating_dist.png",
+        "analysis_results/Amazon_price_dist.png",
+        "analysis_results/Amazon_price_vs_rating.png",
+        "analysis_results/Amazon_review_count.png",
+        "analysis_results/Amazon_title_wordcloud.png"
+    ],
+    "insights": [
+        "Total products analyzed: 20",
+        "Average product rating: 3.35 out of 5.0 stars",
+        "Top rated products:",
+        "- Apple... (5.0 stars)",
+        "- Apple... (5.0 stars)",
+        "- tomtoc... (5.0 stars)",
+        "Price range: $12.49 - $454.50",
+        "Average price: $62.58",
+        "Best value: MOSISO... ($12.49, 4.0 stars)",
+        "Most reviewed: tomtoc... (23612 reviews)",
+        "Total reviews across all products: 41300"
+    ]
+}
