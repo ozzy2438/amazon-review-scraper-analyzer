@@ -126,9 +126,17 @@ class AmazonDashboard:
         """Create the dashboard layout and callbacks."""
         app = Dash(__name__, 
                  assets_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets'),
-                 title="Amazon Product Analysis Dashboard   ")
+                 title="Amazon Product Analysis Dashboard")
         
-        # Define the app layout
+        # Define dark theme colors
+        dark_bg = "#121212"
+        dark_card_bg = "#1E1E1E"
+        dark_text = "#E0E0E0"
+        dark_secondary_text = "#AAAAAA"
+        dark_accent = "#BB86FC"  # Purple accent
+        dark_secondary_accent = "#03DAC6"  # Teal accent
+        
+        # Define the app layout with dark theme
         app.layout = html.Div([
             # Header
             html.Div([
@@ -156,7 +164,7 @@ class AmazonDashboard:
                 ], className="metric-card"),
                 
                 html.Div([
-                    html.H3("Ortalama Fiyat"),
+                    html.H3("Average Price"),
                     html.Div(
                         f"${self.results.get('metrics', {}).get('average_price', 'N/A'):.2f}" 
                         if self.results and self.results.get('metrics', {}).get('average_price') 
@@ -166,7 +174,7 @@ class AmazonDashboard:
                 ], className="metric-card"),
                 
                 html.Div([
-                    html.H3("Ortalama Değerlendirme"),
+                    html.H3("Average Rating"),
                     html.Div([
                         html.Span(
                             f"{self.results.get('metrics', {}).get('average_rating', 'N/A'):.1f}" 
@@ -195,56 +203,58 @@ class AmazonDashboard:
                 dcc.Tab(label="Overview", children=[
                     html.Div([
                         html.Div([
-                            html.H2("Price and Rating Distribution"),
-                            dcc.Graph(
-                                id="scatterplot",
-                                figure=self._create_scatter_plot(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card"),
+                            html.Div([
+                                html.H2("Price and Rating Distribution"),
+                                dcc.Graph(
+                                    id="scatterplot",
+                                    figure=self._create_scatter_plot(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card", style={'width': '50%'}),
+                            
+                            html.Div([
+                                html.H2("Price Distribution"),
+                                dcc.Graph(
+                                    id="price-distribution",
+                                    figure=self._create_price_distribution(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card", style={'width': '50%'}),
+                        ], className="graph-row", style={'display': 'flex', 'flexDirection': 'row', 'gap': '20px'}),
                         
                         html.Div([
-                            html.H2("Price Distribution"),
-                            dcc.Graph(
-                                id="price-distribution",
-                                figure=self._create_price_distribution(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card"),
-                    ], className="graph-row"),
-                    
-                    html.Div([
-                        html.Div([
-                            html.H2("Rating Distribution"),
-                            dcc.Graph(
-                                id="rating-distribution",
-                                figure=self._create_rating_distribution(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card"),
+                            html.Div([
+                                html.H2("Rating Distribution"),
+                                dcc.Graph(
+                                    id="rating-distribution",
+                                    figure=self._create_rating_distribution(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card", style={'width': '50%'}),
+                            
+                            html.Div([
+                                html.H2("Most Popular Products"),
+                                dcc.Graph(
+                                    id="top-products",
+                                    figure=self._create_top_products_chart(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card", style={'width': '50%'}),
+                        ], className="graph-row", style={'display': 'flex', 'flexDirection': 'row', 'gap': '20px'}),
                         
                         html.Div([
-                            html.H2("Most Popular Products"),
-                            dcc.Graph(
-                                id="top-products",
-                                figure=self._create_top_products_chart(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card"),
-                    ], className="graph-row"),
-                    
-                    html.Div([
-                        html.Div([
-                            html.H2("Common Words in Product Titles"),
-                            html.Img(
-                                id="wordcloud-img",
-                                src=self._get_wordcloud_image(),
-                                className="wordcloud-image"
-                            ) if self.results and "wordcloud_image" in self.results.get("visualizations", {}) else
-                            html.Div("Wordcloud not created", className="no-data-message")
-                        ], className="wordcloud-card"),
-                    ], className="graph-row"),
-                ], className="tab-content"),
+                            html.Div([
+                                html.H2("Frequently Used Words in Product Titles"),
+                                html.Img(
+                                    id="wordcloud-img",
+                                    src=self._get_wordcloud_image(),
+                                    className="wordcloud-image"
+                                ) if self.results and "wordcloud_image" in self.results.get("visualizations", {}) else
+                                html.Div("Word cloud could not be created", className="no-data-message")
+                            ], className="wordcloud-card", style={'width': '100%'}),
+                        ], className="graph-row"),
+                    ], className="tab-content", style={"backgroundColor": dark_bg}),
+                ]),
                 
                 # Products Tab
                 dcc.Tab(label="Products", children=[
@@ -254,7 +264,7 @@ class AmazonDashboard:
                             dcc.Input(
                                 id="search-input",
                                 type="text",
-                                placeholder="Product search...",
+                                placeholder="Search products...",
                                 className="search-input"
                             ),
                             html.Button("Search", id="search-button", className="search-button"),
@@ -262,86 +272,99 @@ class AmazonDashboard:
                         
                         html.Div(id="product-list", children=self._create_product_list()),
                     ], className="tab-content")
-                ]),
+                ], style={"backgroundColor": dark_bg}),
                 
                 # Price Analysis Tab
                 dcc.Tab(label="Price Analysis", children=[
                     html.Div([
                         html.Div([
-                            html.H2("Price Range Distribution"),
-                            dcc.Graph(
-                                id="price-range-chart",
-                                figure=self._create_price_range_chart(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card-full"),
-                        
-                        html.Div([
-                            html.H2("Price Boxplot"),
-                            dcc.Graph(
-                                id="price-boxplot",
-                                figure=self._create_price_boxplot(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card-full"),
+                            html.Div([
+                                html.H2("Price Range Distribution"),
+                                dcc.Graph(
+                                    id="price-range-chart",
+                                    figure=self._create_price_range_chart(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card-full", style={'width': '100%', 'marginBottom': '20px'}),
+                            
+                            html.Div([
+                                html.H2("Price Box Plot"),
+                                dcc.Graph(
+                                    id="price-boxplot",
+                                    figure=self._create_price_boxplot(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card-full", style={'width': '100%'}),
+                        ], style={'display': 'flex', 'flexDirection': 'column', 'gap': '20px'}),
                     ], className="tab-content")
-                ]),
+                ], style={"backgroundColor": dark_bg}),
                 
                 # Rating Analysis Tab
-                dcc.Tab(label="Değerlendirme Analizi", children=[
+                dcc.Tab(label="Rating Analysis", children=[
                     html.Div([
                         html.Div([
-                            html.H2("Number of Products by Rating"),
-                            dcc.Graph(
-                                id="rating-chart",
-                                figure=self._create_rating_chart(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card-full"),
-                        
-                        html.Div([
-                            html.H2("High Rated Products (4.0+)"),
-                            dcc.Graph(
-                                id="high-rated-products",
-                                figure=self._create_high_rated_products_chart(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card-full"),
+                            html.Div([
+                                html.H2("Products by Rating Score"),
+                                dcc.Graph(
+                                    id="rating-chart",
+                                    figure=self._create_rating_chart(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card-full", style={'width': '100%', 'marginBottom': '20px'}),
+                            
+                            html.Div([
+                                html.H2("High Rated Products (4.0+)"),
+                                dcc.Graph(
+                                    id="high-rated-products",
+                                    figure=self._create_high_rated_products_chart(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card-full", style={'width': '100%'}),
+                        ], style={'display': 'flex', 'flexDirection': 'column', 'gap': '20px'}),
                     ], className="tab-content")
-                ]),
+                ], style={"backgroundColor": dark_bg}),
                 
                 # Correlations Tab
-                dcc.Tab(label="Korelasyonlar", children=[
+                dcc.Tab(label="Correlations", children=[
                     html.Div([
                         html.Div([
-                            html.H2("Price and Rating Correlation"),
-                            dcc.Graph(
-                                id="price-rating-correlation",
-                                figure=self._create_price_rating_correlation(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card-full"),
-                        
-                        html.Div([
-                            html.H2("Price and Review Count Correlation"),
-                            dcc.Graph(
-                                id="price-review-correlation",
-                                figure=self._create_price_review_correlation(),
-                                config={'displayModeBar': True, 'responsive': True}
-                            )
-                        ], className="graph-card-full"),
+                            html.Div([
+                                html.H2("Price and Rating Correlation"),
+                                dcc.Graph(
+                                    id="price-rating-correlation",
+                                    figure=self._create_price_rating_correlation(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card-full", style={'width': '100%', 'marginBottom': '20px'}),
+                            
+                            html.Div([
+                                html.H2("Price and Review Count Correlation"),
+                                dcc.Graph(
+                                    id="price-review-correlation",
+                                    figure=self._create_price_review_correlation(),
+                                    config={'displayModeBar': True, 'responsive': True}
+                                )
+                            ], className="graph-card-full", style={'width': '100%'}),
+                        ], style={'display': 'flex', 'flexDirection': 'column', 'gap': '20px'}),
                     ], className="tab-content")
-                ]),
-            ], className="tabs-container"),
+                ], style={"backgroundColor": dark_bg}),
+            ], className="tabs-container", colors={
+                "border": dark_accent,
+                "primary": dark_accent,
+                "background": dark_bg
+            }),
             
             # Footer
             html.Footer([
                 html.P([
-                    "Amazon Review Analyzer Dashboard | Report Creation Date: ",
+                    "Amazon Review Analyzer Dashboard | Report Generated: ",
                     html.Span(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 ])
             ], className="dashboard-footer")
-        ], className="dashboard-container")
+        ], className="dashboard-container", style={
+            "backgroundColor": dark_bg,
+            "color": dark_text
+        })
         
         # Add callbacks
         @app.callback(
@@ -362,7 +385,7 @@ class AmazonDashboard:
     def _create_scatter_plot(self):
         """Create a scatter plot of price vs. rating."""
         if self.df is None or self.df.empty:
-            return go.Figure().update_layout(title="Veri bulunamadı")
+            return go.Figure().update_layout(title="No data found", template="plotly_dark")
             
         # Clean and prepare data
         plot_df = self.df.copy()
@@ -376,7 +399,7 @@ class AmazonDashboard:
             # Replace NaN values with 0
             plot_df['price_numeric'].fillna(0, inplace=True)
         except Exception as e:
-            print(f"Fiyat dönüştürme hatası: {e}")
+            print(f"Price conversion error: {e}")
             plot_df['price_numeric'] = 0
         
         try:
@@ -389,44 +412,48 @@ class AmazonDashboard:
                 color="productRating",
                 hover_name="title",
                 size_max=40,
-                color_continuous_scale=px.colors.sequential.Viridis,
-                template="plotly_white"
+                color_continuous_scale=px.colors.sequential.Plasma,
+                template="plotly_dark"
             )
             
             # Update layout
             fig.update_layout(
                 title={
-                    'text': "Fiyat ve Değerlendirme İlişkisi",
+                    'text': "Price and Rating Relationship",
                     'y':0.95,
                     'x':0.5,
                     'xanchor': 'center',
                     'yanchor': 'top',
                     'font': {'size': 18}
                 },
-                xaxis_title="Fiyat ($)",
-                yaxis_title="Değerlendirme Puanı",
+                xaxis_title="Price ($)",
+                yaxis_title="Rating Score",
                 xaxis={'tickprefix': '$'},
                 yaxis={'range': [0, 5.5]},
                 coloraxis_colorbar=dict(
-                    title="Değerlendirme"
+                    title="Rating"
                 ),
-                legend_title="Değerlendirme Sayısı",
-                plot_bgcolor='rgba(240,240,240,0.2)',
+                legend_title="Review Count",
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=500
             )
             
             return fig
         except Exception as e:
-            print(f"Scatter plot oluşturma hatası: {e}")
+            print(f"Scatter plot creation error: {e}")
             return go.Figure().update_layout(
-                title="Fiyat ve Değerlendirme İlişkisi - Veri işlenirken hata oluştu",
+                title="Price and Rating Relationship - Error processing data",
+                template="plotly_dark",
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=500
             )
     
     def _create_price_distribution(self):
         """Create a histogram of price distribution."""
         if self.df is None or self.df.empty:
-            return go.Figure().update_layout(title="Veri bulunamadı")
+            return go.Figure().update_layout(title="No data found", template="plotly_dark")
             
         # Clean and prepare data
         plot_df = self.df.copy()
@@ -440,7 +467,7 @@ class AmazonDashboard:
             # Replace NaN values with 0
             plot_df['price_numeric'].fillna(0, inplace=True)
         except Exception as e:
-            print(f"Fiyat dönüştürme hatası: {e}")
+            print(f"Price conversion error: {e}")
             plot_df['price_numeric'] = 0
         
         try:
@@ -449,24 +476,25 @@ class AmazonDashboard:
                 plot_df,
                 x="price_numeric",
                 nbins=20,
-                color_discrete_sequence=['#6A5ACD'],
-                template="plotly_white"
+                color_discrete_sequence=['#BB86FC'],
+                template="plotly_dark"
             )
             
             # Update layout
             fig.update_layout(
                 title={
-                    'text': "Fiyat Dağılımı",
+                    'text': "Price Distribution",
                     'y':0.95,
                     'x':0.5,
                     'xanchor': 'center',
                     'yanchor': 'top',
                     'font': {'size': 18}
                 },
-                xaxis_title="Fiyat ($)",
-                yaxis_title="Ürün Sayısı",
+                xaxis_title="Price ($)",
+                yaxis_title="Product Count",
                 xaxis={'tickprefix': '$'},
-                plot_bgcolor='rgba(240,240,240,0.2)',
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=400
             )
             
@@ -476,23 +504,27 @@ class AmazonDashboard:
                 fig.add_vline(
                     x=mean_price, 
                     line_dash="dash", 
-                    line_color="red",
-                    annotation_text=f"Ort: ${mean_price:.2f}",
-                    annotation_position="top right"
+                    line_color="#03DAC6",
+                    annotation_text=f"Avg: ${mean_price:.2f}",
+                    annotation_position="top right",
+                    annotation_font_color="#03DAC6"
                 )
             
             return fig
         except Exception as e:
-            print(f"Fiyat dağılımı grafiği oluşturma hatası: {e}")
+            print(f"Price distribution chart creation error: {e}")
             return go.Figure().update_layout(
-                title="Fiyat Dağılımı - Veri işlenirken hata oluştu",
+                title="Price Distribution - Error processing data",
+                template="plotly_dark",
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=400
             )
     
     def _create_rating_distribution(self):
         """Create a bar chart of rating distribution."""
         if self.df is None or self.df.empty:
-            return go.Figure().update_layout(title="Veri bulunamadı")
+            return go.Figure().update_layout(title="No data found", template="plotly_dark")
             
         # Count ratings by score
         rating_counts = self.df.groupby('productRating').size().reset_index(name='count')
@@ -503,24 +535,25 @@ class AmazonDashboard:
             x="productRating",
             y="count",
             color="productRating",
-            color_continuous_scale=px.colors.sequential.Viridis,
-            template="plotly_white"
+            color_continuous_scale=px.colors.sequential.Plasma,
+            template="plotly_dark"
         )
         
         # Update layout
         fig.update_layout(
             title={
-                'text': "Değerlendirme Puanı Dağılımı",
+                'text': "Rating Score Distribution",
                 'y':0.95,
                 'x':0.5,
                 'xanchor': 'center',
                 'yanchor': 'top',
                 'font': {'size': 18}
             },
-            xaxis_title="Değerlendirme Puanı",
-            yaxis_title="Ürün Sayısı",
+            xaxis_title="Rating Score",
+            yaxis_title="Product Count",
             coloraxis_showscale=False,
-            plot_bgcolor='rgba(240,240,240,0.2)',
+            paper_bgcolor='rgba(30,30,30,0.8)',
+            plot_bgcolor='rgba(30,30,30,0.8)',
             height=400
         )
         
@@ -586,14 +619,19 @@ class AmazonDashboard:
                 stopwords = set(STOPWORDS)
                 stopwords.update(['br', 'href', 'www', 'http', 'com', 'amazon'])
                 
-                # Generate wordcloud
+                # Generate dark theme wordcloud
                 wordcloud = WordCloud(
-                    background_color='white',
+                    background_color='#121212',
                     max_words=100,
                     stopwords=stopwords,
                     max_font_size=50,
                     width=800,
-                    height=400
+                    height=400,
+                    colormap='viridis',
+                    prefer_horizontal=0.9,
+                    relative_scaling=0.5,
+                    min_font_size=10,
+                    random_state=42
                 ).generate(titles_text)
                 
                 # Convert to base64
@@ -601,8 +639,10 @@ class AmazonDashboard:
                 wordcloud.to_image().save(img, format='PNG')
                 img.seek(0)
                 
+                print("Generated dark-themed word cloud")
                 return 'data:image/png;base64,' + base64.b64encode(img.getvalue()).decode()
-            except:
+            except Exception as e:
+                print(f"Error generating word cloud: {e}")
                 return None
         
         return None
@@ -613,7 +653,7 @@ class AmazonDashboard:
             df = self.df
             
         if df is None or df.empty:
-            return html.Div("Product data not found", className="no-data-message")
+            return html.Div("No product data found", className="no-data-message")
             
         # Create product cards
         product_cards = []
@@ -639,7 +679,7 @@ class AmazonDashboard:
                             html.Span(f"{int(row['productReviewCount']):,}", className="product-value")
                         ]),
                     ], className="product-details"),
-                        html.A("View on Amazon", href=row['url'], target="_blank", className="product-link")
+                    html.A("View on Amazon", href=row['url'], target="_blank", className="product-link")
                 ], className="product-card")
             )
             
@@ -648,7 +688,7 @@ class AmazonDashboard:
     def _create_price_range_chart(self):
         """Create a bar chart of price ranges."""
         if self.df is None or self.df.empty:
-            return go.Figure().update_layout(title="Veri bulunamadı")
+            return go.Figure().update_layout(title="No data found", template="plotly_dark")
             
         # Clean and prepare data
         plot_df = self.df.copy()
@@ -662,7 +702,7 @@ class AmazonDashboard:
             # Replace NaN values with 0
             plot_df['price_numeric'].fillna(0, inplace=True)
         except Exception as e:
-            print(f"Fiyat dönüştürme hatası: {e}")
+            print(f"Price conversion error: {e}")
             plot_df['price_numeric'] = 0
         
         # Create price bins with proper error handling
@@ -689,24 +729,26 @@ class AmazonDashboard:
                 x="price_range",
                 y="count",
                 color="price_range",
-                template="plotly_white"
+                color_discrete_sequence=px.colors.sequential.Plasma,
+                template="plotly_dark"
             )
             
             # Update layout
             fig.update_layout(
                 title={
-                    'text': "Fiyat Aralığı Dağılımı",
+                    'text': "Price Range Distribution",
                     'y':0.95,
                     'x':0.5,
                     'xanchor': 'center',
                     'yanchor': 'top',
                     'font': {'size': 18}
                 },
-                xaxis_title="Fiyat Aralığı ($)",
-                yaxis_title="Ürün Sayısı",
+                xaxis_title="Price Range ($)",
+                yaxis_title="Product Count",
                 coloraxis_showscale=False,
                 showlegend=False,
-                plot_bgcolor='rgba(240,240,240,0.2)',
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=450
             )
             
@@ -716,13 +758,16 @@ class AmazonDashboard:
             # Return empty figure if binning fails
             return go.Figure().update_layout(
                 title="Price Range Distribution - Error processing data",
+                template="plotly_dark",
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=450
             )
     
     def _create_price_boxplot(self):
         """Create a box plot of prices."""
         if self.df is None or self.df.empty:
-            return go.Figure().update_layout(title="Data not found")
+            return go.Figure().update_layout(title="No data found", template="plotly_dark")
             
         # Clean and prepare data
         plot_df = self.df.copy()
@@ -746,32 +791,37 @@ class AmazonDashboard:
                 y=plot_df['price_numeric'],
                 name="Price",
                 boxmean=True,
-                marker_color='#6A5ACD',
-                line=dict(color='#483D8B')
+                marker_color='#BB86FC',
+                line=dict(color='#9979DB')
             ))
             
             # Update layout
             fig.update_layout(
                 title={
-                    'text': "Price Distribution (Boxplot)",
+                    'text': "Price Distribution (Box Plot)",
                     'y':0.95,
                     'x':0.5,
                     'xanchor': 'center',
                     'yanchor': 'top',
                     'font': {'size': 18}
                 },
-                yaxis_title="Fiyat ($)",
+                yaxis_title="Price ($)",
                 yaxis={'tickprefix': '$'},
                 showlegend=False,
-                plot_bgcolor='rgba(240,240,240,0.2)',
+                template="plotly_dark",
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=450
             )
             
             return fig
         except Exception as e:
-            print(f"Price boxplot creation error: {e}")
+            print(f"Price box plot creation error: {e}")
             return go.Figure().update_layout(
-                title="Price Distribution (Boxplot) - Error processing data",
+                title="Price Distribution (Box Plot) - Error processing data",
+                template="plotly_dark",
+                paper_bgcolor='rgba(30,30,30,0.8)',
+                plot_bgcolor='rgba(30,30,30,0.8)',
                 height=450
             )
     
